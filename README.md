@@ -95,6 +95,15 @@ description: Короткое описание для карточки.
 `listId` и друг другу не мешают. Ключ и так публичный: данные защищают функции и политики
 из `schema.sql`.
 
+Вместо секретов URL и ключ можно вписать прямо в `wishlist.config.json` — так их проще
+передать: Wishlist Editor при создании вишлиста сделает это сам.
+
+```json
+"reservations": { "url": "https://xxxx.supabase.co", "anonKey": "sb_publishable_…" }
+```
+
+Секреты `PUBLIC_SUPABASE_*`, если заданы, важнее конфига.
+
 **База создана до появления `listId`?** Впишите в `legacy` в
 `supabase/migrations/002-shared-lists.sql` `listId` вишлиста, который ею уже пользуется,
 выполните файл, затем `supabase/schema.sql`, и сразу задеплойте сайт.

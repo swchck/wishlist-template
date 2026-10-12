@@ -13,6 +13,10 @@ const WishlistConfig = z.object({
     .default("RUB"),
   /** Reservations namespace in a shared Supabase project; "owner/repo" by convention. */
   listId: z.string().min(1).max(140).optional(),
+  /** Supabase project for reservations; the PUBLIC_SUPABASE_* secrets take precedence. */
+  reservations: z
+    .object({ url: z.string().url(), anonKey: z.string().min(1) })
+    .optional(),
 });
 
 export const config = WishlistConfig.parse(raw);

@@ -16,8 +16,9 @@ concurrency:
 
 jobs:
   build:
-    # the template itself has no Pages site; copies made from it are not templates
-    if: ${{ !github.event.repository.is_template }}
+    # skip the template itself, and the push that creates a copy of it: Pages is not
+    # enabled yet then; the copy's first deploy runs on its first real commit or by hand
+    if: ${{ !github.event.repository.is_template && github.event.created != true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
