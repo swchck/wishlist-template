@@ -16,6 +16,8 @@ concurrency:
 
 jobs:
   build:
+    # the template itself has no Pages site; copies made from it are not templates
+    if: ${{ !github.event.repository.is_template }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
