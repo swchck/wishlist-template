@@ -1,0 +1,319 @@
+---
+import { getRates } from '../lib/currency';
+import { withBase } from '../lib/url';
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+const {
+  title,
+  description = 'Список подарков, которые я хочу — выбирай и бронируй, чтобы не подарить одно и то же дважды.',
+  ogImage,
+} = Astro.props;
+const rates = await getRates();
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.pathname;
+const ymId = import.meta.env.PUBLIC_YM_ID;
+// Картинка для превью ссылок: у подарка — его фото, иначе брендовая og.png
+const defaultOg = Astro.site ? new URL(withBase('og.png'), Astro.site).href : undefined;
+const ogImg = ogImage ?? defaultOg;
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+
+    <link rel="icon" href={withBase('favicon.svg')} type="image/svg+xml" />
+    <link rel="icon" href={withBase('favicon-32.png')} sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href={withBase('apple-touch-icon.png')} />
+    <link rel="manifest" href={withBase('site.webmanifest')} />
+
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f2" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e0e0d" />
+    <meta name="application-name" content="Вишлист" />
+    <meta name="apple-mobile-web-app-title" content="Вишлист" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script is:inline>
+      (() => {
+        const t = localStorage.getItem('theme') || 'auto';
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      })();
+    </script>
+    <title>{title}</title>
+
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Вишлист" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {ogImg && <meta property="og:image" content={ogImg} />}
+    {ogImg && !ogImage && <meta property="og:image:width" content="1200" />}
+    {ogImg && !ogImage && <meta property="og:image:height" content="630" />}
+    <meta name="twitter:card" content={ogImg ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImg && <meta name="twitter:image" content={ogImg} />}
+
+    {ymId && (
+      <script
+        is:inline
+        set:html={`(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();for(var j=0;j<e.scripts.length;j++){if(e.scripts[j].src===r){return;}}k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");ym(${ymId},"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true});`}
+      />
+      <noscript>
+        <div>
+          <img src={`https://mc.yandex.ru/watch/${ymId}`} style="position:absolute;left:-9999px" alt="" />
+        </div>
+      </noscript>
+    )}
+  </head>
+  <body>
+    <header class="site-header container">
+      <a class="brand" href={withBase()}>
+        <span class="brand-mark">✳</span>
+        <span>вишлист</span>
+      </a>
+
+      <div class="switches">
+        <div class="seg" role="group" aria-label="Валюта отображения">
+          <button type="button" data-cur-set="EUR" title="Показывать в евро">€</button>
+          <button type="button" data-cur-set="RUB" title="Показывать в рублях">₽</button>
+          <button type="button" data-cur-set="USD" title="Показывать в долларах">$</button>
+        </div>
+        <div class="seg" role="group" aria-label="Тема оформления">
+          <button type="button" data-theme-set="light" title="Светлая" aria-label="Светлая тема">☀</button>
+          <button type="button" data-theme-set="auto" title="Как в системе" aria-label="Авто">◐</button>
+          <button type="button" data-theme-set="dark" title="Тёмная" aria-label="Тёмная тема">☾</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <slot />
+    </main>
+
+    <footer class="site-footer container">
+      <p>Забронированное видят другие гости. Дарителей не раскрываем — сюрприз остаётся сюрпризом.</p>
+    </footer>
+
+    <script id="rates" type="application/json" is:inline set:html={JSON.stringify(rates)}></script>
+
+    <script>
+      import { initReservations } from '../scripts/reservations';
+      import { initTheme } from '../scripts/theme';
+      import { initPrices } from '../scripts/prices';
+      import { initDeadlines } from '../scripts/deadline';
+      initTheme();
+      initPrices();
+      initDeadlines();
+      initReservations();
+    </script>
+
+    <style is:global>
+      :root {
+        --bg: #ffffff;
+        --surface: #ffffff;
+        --surface-2: #f4f4f3;
+        --line: #e7e7e5;
+        --line-2: #d6d6d3;
+        --text: #131312;
+        --muted: #6f6f6b;
+        --faint: #a3a39e;
+        --ink: #131312;
+        --ink-inv: #ffffff;
+        --ok: #131312;
+
+        --font-sans: 'Golos Text', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+        --radius: 14px;
+        --radius-sm: 9px;
+        --maxw: 1060px;
+      }
+      :root[data-theme='dark'] {
+        --bg: #0e0e0d;
+        --surface: #161615;
+        --surface-2: #1e1e1c;
+        --line: #292927;
+        --line-2: #3a3a37;
+        --text: #f1f1ef;
+        --muted: #9a9a95;
+        --faint: #66665f;
+        --ink: #f1f1ef;
+        --ink-inv: #0e0e0d;
+        --ok: #f1f1ef;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0e0e0d;
+          --surface: #161615;
+          --surface-2: #1e1e1c;
+          --line: #292927;
+          --line-2: #3a3a37;
+          --text: #f1f1ef;
+          --muted: #9a9a95;
+          --faint: #66665f;
+          --ink: #f1f1ef;
+          --ink-inv: #0e0e0d;
+          --ok: #f1f1ef;
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      a { color: inherit; }
+      img { max-width: 100%; display: block; }
+
+      .container { max-width: var(--maxw); margin: 0 auto; padding: 0 26px; }
+      @media (max-width: 600px) { .container { padding: 0 18px; } }
+
+      .site-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 26px 26px 6px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--text);
+      }
+      .brand-mark { color: var(--muted); font-size: 0.95rem; }
+
+      .switches { display: inline-flex; gap: 8px; }
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 2px;
+        background: var(--surface);
+      }
+      .seg button {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--faint);
+        font-size: 0.85rem;
+        line-height: 1;
+        min-width: 28px;
+        height: 26px;
+        padding: 0 6px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .seg button:hover { color: var(--text); }
+      .seg button[aria-pressed='true'] { background: var(--surface-2); color: var(--text); }
+
+      .site-footer {
+        margin-top: 78px;
+        padding-top: 22px;
+        padding-bottom: 52px;
+        border-top: 1px solid var(--line);
+      }
+      .site-footer p { margin: 0; max-width: 60ch; color: var(--faint); font-size: 0.82rem; }
+
+      .cat { font-size: 0.8rem; color: var(--muted); }
+      .price { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+      .reserve-btn {
+        appearance: none;
+        font-family: var(--font-sans);
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--ink-inv);
+        background: var(--ink);
+        border: 1px solid var(--ink);
+        padding: 11px 18px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: opacity 0.16s ease;
+      }
+      .reserve-btn:hover:not(:disabled) { opacity: 0.85; }
+      .reserve-btn:disabled { cursor: default; }
+      .is-reserved .reserve-btn {
+        background: transparent;
+        color: var(--faint);
+        border-color: var(--line-2);
+      }
+
+      .is-mine .reserve-btn {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--line-2);
+      }
+      .is-mine .reserve-btn:hover:not(:disabled) { border-color: var(--ink); opacity: 1; }
+      .is-mine .card-media :global(img),
+      .is-mine .shot :global(img) { filter: grayscale(0.4) !important; opacity: 0.75 !important; }
+
+      .stamp {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.74rem;
+        font-weight: 500;
+        color: var(--ink-inv);
+        background: var(--ink);
+        border-radius: 999px;
+        padding: 5px 11px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+      }
+      .is-reserved .stamp { opacity: 1; }
+
+      .deadline { display: inline-flex; align-items: baseline; gap: 6px; font-size: 0.78rem; color: var(--muted); }
+      .deadline.is-urgent { color: var(--ink); font-weight: 600; }
+      .deadline.is-past { color: var(--faint); text-decoration: line-through; }
+      .deadline-note { font-size: 0.72rem; color: var(--faint); }
+      .deadline.is-urgent .deadline-note { color: var(--ink); text-decoration: none; }
+
+      .group-head {
+        grid-column: 1 / -1;
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        padding: 20px 2px 2px;
+      }
+      .group-head:first-child { padding-top: 0; }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
+      }
+    </style>
+  </body>
+</html>

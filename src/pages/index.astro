@@ -1,0 +1,366 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../layouts/Base.astro";
+import ItemCard from "../components/ItemCard.astro";
+import { getRates, toEur } from "../lib/currency";
+import { photosOf } from "../lib/photos";
+import { GIFT_TYPES, GIFT_TYPE_PLURAL } from "../lib/types";
+import { config } from "../lib/config";
+
+const rates = await getRates();
+const items = (await getCollection("items"))
+    .filter((item) => !item.data.hidden)
+    .map((item) => ({
+        ...item,
+        priceEur: toEur(item.data.price, item.data.currency, rates),
+    }))
+    .sort((a, b) => a.data.priority - b.data.priority);
+
+const presentTypes = GIFT_TYPES.filter((t) =>
+    items.some((i) => i.data.type === t),
+);
+---
+
+<Base title={config.title}>
+    <section class="hero">
+        <h1>Что я хочу<br />получить в&nbsp;подарок</h1>
+        <p class="lead">
+            Выбирайте что по душе и жмите «Забронировать» — занятое сразу увидят
+            остальные.
+        </p>
+    </section>
+
+    <div class="filters">
+        <div class="chips" role="tablist" aria-label="Тип подарка">
+            <button
+                class="chip is-active"
+                data-type-chip=""
+                role="tab"
+                aria-selected="true">Все</button
+            >
+            {
+                presentTypes.map((t) => (
+                    <button
+                        class="chip"
+                        data-type-chip={t}
+                        role="tab"
+                        aria-selected="false"
+                    >
+                        {GIFT_TYPE_PLURAL[t]}
+                    </button>
+                ))
+            }
+        </div>
+        <div class="tools">
+            <input
+                type="search"
+                id="q"
+                placeholder="Поиск…"
+                aria-label="Поиск по названию"
+            />
+            <select id="sort" aria-label="Сортировка">
+                <option value="priority">Сначала важное</option>
+                <option value="deadline">По сроку</option>
+                <option value="price-asc">Дешевле</option>
+                <option value="price-desc">Дороже</option>
+                <option value="title">По названию</option>
+            </select>
+            <label class="toggle">
+                <input type="checkbox" id="hide-reserved" />
+                <span>Свободные</span>
+            </label>
+        </div>
+    </div>
+
+    <p class="empty" id="empty" hidden>
+        Ничего не найдено — попробуйте изменить фильтры.
+    </p>
+
+    <div class="grid" id="grid">
+        {
+            items.map((item, i) => (
+                <ItemCard
+                    slug={item.id}
+                    index={i}
+                    title={item.data.title}
+                    type={item.data.type}
+                    category={item.data.category}
+                    price={item.data.price}
+                    currency={item.data.currency}
+                    priceEur={item.priceEur}
+                    priority={item.data.priority}
+                    image={photosOf(item.data)[0]}
+                    deadline={item.data.deadline}
+                />
+            ))
+        }
+    </div>
+
+    <style>
+        .hero {
+            margin: 34px 0 34px;
+        }
+        .hero h1 {
+            margin: 0 0 14px;
+            font-weight: 600;
+            font-size: clamp(1.9rem, 4vw, 2.8rem);
+            line-height: 1.08;
+            letter-spacing: -0.03em;
+        }
+        .lead {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1.04rem;
+            max-width: 46ch;
+        }
+
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--line);
+        }
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+        .chip {
+            appearance: none;
+            font: inherit;
+            font-size: 0.86rem;
+            color: var(--muted);
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 6px 13px;
+            cursor: pointer;
+            transition:
+                color 0.15s ease,
+                background 0.15s ease,
+                border-color 0.15s ease;
+        }
+        .chip:hover {
+            color: var(--text);
+        }
+        .chip.is-active {
+            color: var(--ink-inv);
+            background: var(--ink);
+            border-color: var(--ink);
+        }
+
+        .tools {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+        .tools input[type="search"],
+        .tools select {
+            font: inherit;
+            font-size: 0.9rem;
+            height: 38px;
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-sm);
+            padding: 0 12px;
+        }
+        .tools input[type="search"] {
+            width: 150px;
+        }
+        .tools input::placeholder {
+            color: var(--faint);
+        }
+        .tools input:focus,
+        .tools select:focus {
+            outline: none;
+            border-color: var(--line-2);
+        }
+        .tools select {
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 32px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+        }
+
+        .toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.88rem;
+            color: var(--muted);
+            cursor: pointer;
+            user-select: none;
+            padding: 0 2px;
+        }
+        .toggle input {
+            accent-color: var(--ink);
+            width: 15px;
+            height: 15px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+            gap: 18px;
+        }
+        .empty {
+            color: var(--muted);
+            padding: 44px 0;
+            font-size: 0.92rem;
+        }
+    </style>
+
+    <script>
+        import { daysLeft } from "../scripts/deadline";
+        import { PRIORITY_LABELS } from "../lib/format";
+        const grid = document.getElementById("grid")!;
+        const q = document.getElementById("q") as HTMLInputElement;
+        const sort = document.getElementById("sort") as HTMLSelectElement;
+        const hideReserved = document.getElementById(
+            "hide-reserved",
+        ) as HTMLInputElement;
+        const empty = document.getElementById("empty")!;
+        const chips = Array.from(
+            document.querySelectorAll<HTMLButtonElement>("[data-type-chip]"),
+        );
+        const cards = Array.from(grid.querySelectorAll<HTMLElement>(".card"));
+        let activeType = "";
+
+        function group(card: HTMLElement): { key: string; label: string } {
+            if (sort.value === "priority") {
+                const p = card.dataset.priority ?? "3";
+                return {
+                    key: "p" + p,
+                    label: PRIORITY_LABELS[Number(p)] ?? "Приоритет " + p,
+                };
+            }
+            if (sort.value === "title") {
+                const ch =
+                    (card.dataset.title ?? "#")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase() || "#";
+                return { key: "l" + ch, label: ch };
+            }
+            if (sort.value === "deadline") {
+                const dl = card.dataset.deadline;
+                if (!dl) return { key: "dz", label: "Без срока" };
+                const n = daysLeft(dl);
+                if (n < 0) return { key: "d0", label: "Просрочено" };
+                if (n <= 7) return { key: "d1", label: "На этой неделе" };
+                if (n <= 31) return { key: "d2", label: "В этом месяце" };
+                return { key: "d3", label: "Позже" };
+            }
+            const raw = card.dataset.price;
+            if (raw === "" || raw == null)
+                return { key: "zz", label: "Без цены" };
+            const eur = Number(raw);
+            const buckets: [number, string][] = [
+                [50, "до 50 €"],
+                [100, "50–100 €"],
+                [300, "100–300 €"],
+                [600, "300–600 €"],
+                [1000, "600–1000 €"],
+                [Infinity, "от 1000 €"],
+            ];
+            for (let i = 0; i < buckets.length; i++)
+                if (eur < buckets[i][0])
+                    return { key: "b" + i, label: buckets[i][1] };
+            return { key: "b9", label: "от 1000 €" };
+        }
+
+        function apply() {
+            const query = q.value.trim().toLowerCase();
+            const visible: HTMLElement[] = [];
+            for (const card of cards) {
+                const matchQuery =
+                    !query || (card.dataset.title ?? "").includes(query);
+                const matchType =
+                    !activeType || card.dataset.type === activeType;
+                const matchReserved =
+                    !hideReserved.checked ||
+                    !card.classList.contains("is-reserved");
+                const show = matchQuery && matchType && matchReserved;
+                card.hidden = !show;
+                if (show) visible.push(card);
+            }
+            empty.hidden = visible.length > 0;
+
+            visible.sort((a, b) => {
+                switch (sort.value) {
+                    case "price-asc":
+                        return (
+                            n(a, "price", Infinity) - n(b, "price", Infinity)
+                        );
+                    case "price-desc":
+                        return (
+                            n(b, "price", -Infinity) - n(a, "price", -Infinity)
+                        );
+                    case "title":
+                        return (a.dataset.title ?? "").localeCompare(
+                            b.dataset.title ?? "",
+                            "ru",
+                        );
+                    case "deadline":
+                        return dl(a) - dl(b);
+                    default:
+                        return n(a, "priority", 99) - n(b, "priority", 99);
+                }
+            });
+
+            grid.querySelectorAll(".group-head").forEach((h) => h.remove());
+            let lastKey = "";
+            for (const card of visible) {
+                const g = group(card);
+                if (g.key !== lastKey) {
+                    const head = document.createElement("div");
+                    head.className = "group-head";
+                    head.textContent = g.label;
+                    grid.appendChild(head);
+                    lastKey = g.key;
+                }
+                grid.appendChild(card);
+            }
+        }
+
+        function n(el: HTMLElement, key: string, fallback: number) {
+            const v = el.dataset[key];
+            return v === "" || v == null ? fallback : Number(v);
+        }
+
+        function dl(el: HTMLElement) {
+            return el.dataset.deadline
+                ? daysLeft(el.dataset.deadline)
+                : Infinity;
+        }
+
+        for (const chip of chips) {
+            chip.addEventListener("click", () => {
+                activeType = chip.dataset.typeChip ?? "";
+                for (const c of chips) {
+                    const on = c === chip;
+                    c.classList.toggle("is-active", on);
+                    c.setAttribute("aria-selected", String(on));
+                }
+                apply();
+            });
+        }
+        [q, hideReserved].forEach((el) => el.addEventListener("input", apply));
+        sort.addEventListener("change", apply);
+        new MutationObserver(() => apply()).observe(grid, {
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["class"],
+        });
+        apply();
+    </script>
+</Base>

@@ -1,0 +1,235 @@
+---
+import { Image } from "astro:assets";
+import { formatDeadline, isoDate, PRIORITY_LABELS } from "../lib/format";
+import PriceTag from "./PriceTag.astro";
+import { withBase } from "../lib/url";
+
+interface Props {
+    slug: string;
+    index: number;
+    title: string;
+    type: string;
+    category?: string;
+    price?: number;
+    currency: string;
+    priceEur?: number;
+    priority: number;
+    image?: ImageMetadata | string;
+    deadline?: Date;
+}
+const p = Astro.props;
+const href = withBase(`items/${p.slug}`);
+const isRemoteImage = typeof p.image === "string";
+const filled = 6 - p.priority;
+const wantLabel = PRIORITY_LABELS[p.priority] ?? `Приоритет ${p.priority}`;
+const deadlineLabel = formatDeadline(p.deadline);
+const deadlineIso = isoDate(p.deadline);
+const tagText = p.category ?? p.type;
+---
+
+<article
+    class="card"
+    style={`--i:${p.index}`}
+    data-item-slug={p.slug}
+    data-item-title={p.title}
+    data-type={p.type}
+    data-priority={p.priority}
+    data-price={p.priceEur ?? ""}
+    data-deadline={deadlineIso}
+    data-title={p.title.toLowerCase()}
+>
+    <a class="card-media" href={href} aria-label={p.title}>
+        {
+            p.image && isRemoteImage && (
+                <img
+                    src={p.image as string}
+                    alt={p.title}
+                    loading="lazy"
+                    width="800"
+                    height="600"
+                />
+            )
+        }
+        {
+            p.image && !isRemoteImage && (
+                <Image
+                    src={p.image as ImageMetadata}
+                    alt={p.title}
+                    width={800}
+                />
+            )
+        }
+        {!p.image && <div class="card-media--empty">{"✳︎"}</div>}
+        <span class="stamp">Занято</span>
+    </a>
+
+    <div class="card-body">
+        <span
+            class="want"
+            title={`Насколько хочу: ${wantLabel}`}
+            aria-label={`Насколько хочу: ${wantLabel}`}
+        >
+            {
+                Array.from({ length: 5 }).map((_, i) => (
+                    <i class={i < filled ? "on" : ""} />
+                ))
+            }
+        </span>
+
+        <h2 class="card-title"><a href={href}>{p.title}</a></h2>
+
+        <div class="card-sub">
+            <span class="cat">{tagText}</span>
+            {
+                deadlineLabel && deadlineIso && (
+                    <span class="deadline" data-deadline={deadlineIso}>
+                        {deadlineLabel} <span class="deadline-note" data-days />
+                    </span>
+                )
+            }
+        </div>
+
+        <div class="card-price">
+            <PriceTag
+                price={p.price}
+                currency={p.currency}
+                priceEur={p.priceEur}
+            />
+        </div>
+
+        <button class="reserve-btn" type="button" data-reserve-btn
+            >Забронировать</button
+        >
+    </div>
+</article>
+
+<style>
+    .card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        opacity: 0;
+        animation: cardIn 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+        animation-delay: calc(var(--i) * 55ms);
+        transition:
+            transform 0.2s ease,
+            border-color 0.2s ease;
+    }
+    @keyframes cardIn {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .card:hover {
+        transform: translateY(-3px);
+        border-color: var(--line-2);
+    }
+    .card[hidden] {
+        display: none !important;
+    }
+
+    .card-media {
+        position: relative;
+        display: block;
+        aspect-ratio: 4 / 3;
+        background: var(--surface-2);
+        overflow: hidden;
+    }
+    .card-media :global(img) {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .card-media--empty {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        font-size: 2rem;
+        color: var(--faint);
+    }
+    .card-disc {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 2;
+    }
+
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        gap: 8px;
+        padding: 14px 15px 15px;
+    }
+
+    .want {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+    }
+    .want i {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--line-2);
+    }
+    .want i.on {
+        background: var(--ink);
+    }
+
+    .card-title {
+        margin: 0;
+        font-weight: 500;
+        font-size: 1.06rem;
+        line-height: 1.3;
+        letter-spacing: -0.01em;
+    }
+    .card-title a {
+        text-decoration: none;
+    }
+    .card:hover .card-title a {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .card-sub {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .card-price {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 4px;
+    }
+    .card-price .price {
+        font-size: 1rem;
+    }
+
+    .card .reserve-btn {
+        margin-top: 12px;
+        align-self: stretch;
+    }
+
+    .card.is-reserved .card-media :global(img) {
+        filter: grayscale(1);
+        opacity: 0.4;
+    }
+    .card.is-reserved .want i.on {
+        background: var(--line-2);
+    }
+</style>

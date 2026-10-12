@@ -1,0 +1,59 @@
+---
+import { formatPrice, formatEur } from "../lib/format";
+
+interface Props {
+    price?: number;
+    currency: string;
+    priceEur?: number;
+    size?: "sm" | "lg";
+}
+const { price, currency, priceEur, size = "sm" } = Astro.props;
+const cur = currency.toUpperCase();
+const convDefaultHidden = cur === "EUR";
+---
+
+{
+    price == null ? (
+        <span class="price-tag price-empty">Цена не указана</span>
+    ) : (
+        <span
+            class={`price-tag ${size === "lg" ? "is-lg" : ""}`}
+            data-eur={priceEur ?? ""}
+        >
+            <span class="price price-main">{formatPrice(price, currency)}</span>
+            <span
+                class="price-conv"
+                data-conv
+                data-cur-orig={cur}
+                hidden={convDefaultHidden}
+            >
+                ≈{" "}
+                {priceEur != null ? formatEur(priceEur).replace("≈ ", "") : ""}
+            </span>
+        </span>
+    )
+}
+
+<style>
+    .price-tag {
+        display: inline-flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .price-main {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+    .price-tag.is-lg .price-main {
+        font-size: 1.5rem;
+    }
+    .price-conv {
+        color: var(--faint);
+        font-size: 0.85em;
+    }
+    .price-empty {
+        color: var(--muted);
+        font-weight: 600;
+    }
+</style>

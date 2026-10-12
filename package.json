@@ -1,0 +1,20 @@
+{
+  "name": "wishlist",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "new": "node scripts/new-item.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.7.0"
+  }
+}

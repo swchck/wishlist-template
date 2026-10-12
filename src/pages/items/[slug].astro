@@ -1,0 +1,495 @@
+---
+import { getCollection, render } from "astro:content";
+import { Image } from "astro:assets";
+import Base from "../../layouts/Base.astro";
+import {
+    formatDeadline,
+    formatPrice,
+    isoDate,
+    PRIORITY_LABELS,
+} from "../../lib/format";
+import { getRates, toEur } from "../../lib/currency";
+import { photosOf } from "../../lib/photos";
+import PriceTag from "../../components/PriceTag.astro";
+import { withBase } from "../../lib/url";
+
+export async function getStaticPaths() {
+    const items = (await getCollection("items")).filter(
+        (item) => !item.data.hidden,
+    );
+    return items.map((item) => ({
+        params: { slug: item.id },
+        props: { item },
+    }));
+}
+
+const { item } = Astro.props;
+const { data } = item;
+const { Content } = await render(item);
+
+const rates = await getRates();
+const priceEur = toEur(data.price, data.currency, rates);
+const filled = 6 - data.priority;
+const wantLabel =
+    PRIORITY_LABELS[data.priority] ?? `Приоритет ${data.priority}`;
+const deadlineLabel = formatDeadline(data.deadline);
+const deadlineIso = isoDate(data.deadline);
+
+const photos = photosOf(data);
+const isRemote = (x: unknown): x is string => typeof x === "string";
+
+const firstPhoto = photos[0];
+const ogImage = firstPhoto
+    ? isRemote(firstPhoto)
+        ? firstPhoto
+        : Astro.site
+          ? new URL(firstPhoto.src, Astro.site).href
+          : firstPhoto.src
+    : undefined;
+const ogDesc =
+    [
+        data.price != null ? formatPrice(data.price, data.currency) : null,
+        data.category ?? data.type,
+        data.description,
+    ]
+        .filter(Boolean)
+        .join(" · ") || undefined;
+---
+
+<Base title={`${data.title} — Вишлист`} description={ogDesc} ogImage={ogImage}>
+    <a class="back" href={withBase()}>← Ко всем подаркам</a>
+
+    <article class="item" data-item-slug={item.id} data-item-title={data.title}>
+        <div class="media-col">
+            <div class="stage">
+                <span class="stamp">Занято</span>
+                {photos.length === 0 && <div class="stage--empty">{"✳︎"}</div>}
+                {
+                    photos.map((ph, i) => (
+                        <div
+                            class={`shot ${i === 0 ? "on" : ""}`}
+                            data-shot={i}
+                            hidden={i !== 0}
+                        >
+                            {isRemote(ph) ? (
+                                <img
+                                    src={ph}
+                                    alt={data.title}
+                                    width="1000"
+                                    height="800"
+                                    decoding="async"
+                                    loading={i === 0 ? "eager" : "lazy"}
+                                />
+                            ) : (
+                                <Image
+                                    src={ph}
+                                    alt={data.title}
+                                    width={1000}
+                                    loading={i === 0 ? "eager" : "lazy"}
+                                />
+                            )}
+                        </div>
+                    ))
+                }
+            </div>
+            {
+                photos.length > 1 && (
+                    <div class="thumbs">
+                        {photos.map((ph, i) => (
+                            <button
+                                class={`thumb ${i === 0 ? "on" : ""}`}
+                                data-thumb={i}
+                                aria-label={`Фото ${i + 1}`}
+                            >
+                                {isRemote(ph) ? (
+                                    <img
+                                        src={ph}
+                                        alt=""
+                                        width="120"
+                                        height="90"
+                                    />
+                                ) : (
+                                    <Image src={ph} alt="" width={160} />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                )
+            }
+        </div>
+
+        <div class="info-col">
+            <div class="info-tags">
+                <span class="cat">{data.type}</span>
+                {
+                    data.category && (
+                        <>
+                            <>
+                                <span class="dot">·</span>
+                                <span class="cat">{data.category}</span>
+                            </>
+                        </>
+                    )
+                }
+                {
+                    deadlineLabel && deadlineIso && (
+                        <>
+                            <span class="dot">·</span>
+                            <span class="deadline" data-deadline={deadlineIso}>
+                                {deadlineLabel}{" "}
+                                <span class="deadline-note" data-days />
+                            </span>
+                        </>
+                    )
+                }
+            </div>
+
+            <h1>{data.title}</h1>
+
+            <div class="want-row" title={wantLabel}>
+                <span class="want">
+                    {
+                        Array.from({ length: 5 }).map((_, i) => (
+                            <i class={i < filled ? "on" : ""} />
+                        ))
+                    }
+                </span>
+                <span class="want-label">{wantLabel}</span>
+            </div>
+
+            <div class="price-row">
+                <PriceTag
+                    price={data.price}
+                    currency={data.currency}
+                    priceEur={priceEur}
+                    size="lg"
+                />
+            </div>
+
+            {data.description && <p class="lead">{data.description}</p>}
+            <div class="prose"><Content /></div>
+
+            {
+                data.links && data.links.length > 0 && (
+                    <ul class="links">
+                        {data.links.map((l) => (
+                            <li>
+                                <a
+                                    href={l.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {l.label} <span class="arr">↗</span>
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                )
+            }
+
+            <div class="actions">
+                <button
+                    class="reserve-btn reserve-btn--lg"
+                    type="button"
+                    data-reserve-btn>Забронировать</button
+                >
+                {
+                    data.url && (
+                        <a
+                            class="link-btn"
+                            href={data.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Открыть в магазине ↗
+                        </a>
+                    )
+                }
+            </div>
+        </div>
+    </article>
+
+    <style>
+        .back {
+            display: inline-block;
+            margin: 8px 0 26px;
+            font-size: 0.86rem;
+            color: var(--muted);
+            text-decoration: none;
+        }
+        .back:hover {
+            color: var(--text);
+        }
+
+        .item {
+            display: grid;
+            grid-template-columns: 1.05fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+        @media (max-width: 780px) {
+            .item {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            .media-col {
+                position: static !important;
+            }
+        }
+
+        .media-col {
+            position: sticky;
+            top: 22px;
+            align-self: start;
+        }
+
+        .stage {
+            position: relative;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface-2);
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+        }
+        .shot {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .shot.on {
+            opacity: 1;
+        }
+        .shot[hidden] {
+            display: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .shot {
+                transition: none;
+            }
+        }
+        .shot :global(img) {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .stage--empty {
+            display: grid;
+            place-items: center;
+            height: 100%;
+            font-size: 3rem;
+            color: var(--faint);
+        }
+        .item.is-reserved .shot :global(img) {
+            filter: grayscale(1);
+            opacity: 0.4;
+        }
+        .stage-disc {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 2;
+        }
+
+        .thumbs {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .thumb {
+            width: 62px;
+            height: 50px;
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface-2);
+            cursor: pointer;
+        }
+        .thumb :global(img) {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .thumb.on {
+            border-color: var(--ink);
+        }
+
+        .info-col {
+            padding-top: 2px;
+        }
+        .info-tags {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .info-tags .dot {
+            color: var(--faint);
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-weight: 600;
+            font-size: clamp(1.7rem, 3.6vw, 2.4rem);
+            line-height: 1.12;
+            letter-spacing: -0.028em;
+        }
+
+        .want-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .want {
+            display: inline-flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .want i {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--line-2);
+        }
+        .want i.on {
+            background: var(--ink);
+        }
+        .want-label {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .price-row {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+        .price--lg {
+            font-size: 1.5rem;
+        }
+
+        .lead {
+            margin: 0 0 12px;
+            font-size: 1.05rem;
+        }
+        .prose {
+            color: var(--muted);
+        }
+        .prose :global(p) {
+            margin: 0 0 12px;
+        }
+
+        .links {
+            list-style: none;
+            margin: 20px 0 0;
+            padding: 16px 0 0;
+            border-top: 1px solid var(--line);
+            display: grid;
+            gap: 10px;
+        }
+        .links a {
+            font-size: 0.95rem;
+            text-decoration: none;
+            color: var(--text);
+        }
+        .links a:hover {
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+        .links .arr {
+            color: var(--faint);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 28px;
+        }
+        .reserve-btn--lg {
+            padding: 13px 26px;
+            font-size: 0.98rem;
+        }
+        .link-btn {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.92rem;
+            font-weight: 500;
+            padding: 13px 22px;
+            color: var(--text);
+            border: 1px solid var(--line-2);
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+        }
+        .link-btn:hover {
+            border-color: var(--ink);
+        }
+    </style>
+
+    <script>
+        const stage = document.querySelector(".stage");
+        const shots = Array.from(
+            document.querySelectorAll<HTMLElement>("[data-shot]"),
+        );
+        const thumbs = Array.from(
+            document.querySelectorAll<HTMLButtonElement>("[data-thumb]"),
+        );
+
+        let idx = 0;
+        const FADE = 500;
+        const show = (i: number) => {
+            idx = (i + shots.length) % shots.length;
+            shots.forEach((s, k) => {
+                if (k === idx) {
+                    s.hidden = false;
+                    requestAnimationFrame(() => s.classList.add("on"));
+                } else if (s.classList.contains("on")) {
+                    s.classList.remove("on");
+                    window.setTimeout(() => {
+                        if (idx !== k) s.hidden = true;
+                    }, FADE + 60);
+                } else {
+                    s.hidden = true;
+                }
+            });
+            thumbs.forEach((t, k) => t.classList.toggle("on", k === idx));
+        };
+
+        const reduce = window.matchMedia(
+            "(prefers-reduced-motion: reduce)",
+        ).matches;
+        const DELAY = 3800;
+        let timer: number | undefined;
+        const start = () => {
+            if (shots.length > 1 && !reduce && timer === undefined)
+                timer = window.setInterval(() => show(idx + 1), DELAY);
+        };
+        const stop = () => {
+            if (timer !== undefined) {
+                clearInterval(timer);
+                timer = undefined;
+            }
+        };
+
+        for (const thumb of thumbs) {
+            thumb.addEventListener("click", () => {
+                show(Number(thumb.dataset.thumb));
+                stop();
+                start();
+            });
+        }
+        stage?.addEventListener("mouseenter", stop);
+        stage?.addEventListener("mouseleave", start);
+        document.addEventListener("visibilitychange", () =>
+            document.hidden ? stop() : start(),
+        );
+
+        start();
+    </script>
+</Base>
