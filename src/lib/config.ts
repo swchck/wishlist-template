@@ -11,6 +11,8 @@ const WishlistConfig = z.object({
     .string()
     .regex(/^[A-Z]{3}$/)
     .default("RUB"),
+  /** Reservations namespace in a shared Supabase project; "owner/repo" by convention. */
+  listId: z.string().min(1).max(140).optional(),
 });
 
 export const config = WishlistConfig.parse(raw);

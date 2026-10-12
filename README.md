@@ -34,6 +34,8 @@
 
 - `title` — заголовок главной страницы.
 - `defaultCurrency` — валюта карточки, если `currency` не указан.
+- `listId` — необязательно: под каким именем вишлист хранит брони в Supabase. По умолчанию
+  `owner/repo`; задайте явно, чтобы брони пережили переименование репозитория.
 - `schemaVersion` — версия формата карточек. По ней Wishlist Editor понимает, что умеет
   редактировать этот репозиторий. Не меняйте вручную.
 
@@ -88,6 +90,15 @@ description: Короткое описание для карточки.
    `PUBLIC_SUPABASE_URL` и `PUBLIC_SUPABASE_ANON_KEY`.
 5. Перезапустите деплой.
 
+**Одна база на несколько вишлистов.** Вишлист партнёра или друга может пользоваться вашим
+проектом Supabase — достаточно тех же двух секретов. Брони каждого хранятся под его
+`listId` и друг другу не мешают. Ключ и так публичный: данные защищают функции и политики
+из `schema.sql`.
+
+**База создана до появления `listId`?** Впишите в `legacy` в
+`supabase/migrations/002-shared-lists.sql` `listId` вишлиста, который ею уже пользуется,
+выполните файл, затем `supabase/schema.sql`, и сразу задеплойте сайт.
+
 Гость, забронировавший подарок, видит на нём кнопку **«Снять мою бронь»** (у остальных —
 просто «Занято»). У гостя в браузере хранится случайный токен, в БД лежит только его хэш,
 поэтому снять бронь может лишь тот, кто её поставил.
@@ -96,13 +107,15 @@ description: Короткое описание для карточки.
 
 ```sql
 -- снять бронь
-update public.reservations set reserved = false, reserved_at = null where slug = '<slug>';
-delete from public.reservation_secrets where slug = '<slug>';
+update public.reservations set reserved = false, reserved_at = null
+  where list = '<listId>' and slug = '<slug>';
+delete from public.reservation_secrets where list = '<listId>' and slug = '<slug>';
 -- посмотреть занятое
-select slug, reserved_at from public.reservations where reserved order by reserved_at;
--- сбросить всё после праздника
-update public.reservations set reserved = false, reserved_at = null;
-delete from public.reservation_secrets;
+select slug, reserved_at from public.reservations
+  where list = '<listId>' and reserved order by reserved_at;
+-- сбросить всё после праздника (только этот вишлист)
+update public.reservations set reserved = false, reserved_at = null where list = '<listId>';
+delete from public.reservation_secrets where list = '<listId>';
 ```
 
 ## Аналитика (Яндекс.Метрика)

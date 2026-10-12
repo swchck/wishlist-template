@@ -1,4 +1,4 @@
-import { getSupabase } from "../lib/supabase";
+import { getSupabase, LIST_ID } from "../lib/supabase";
 
 type Unit = { slug: string; root: HTMLElement; btn: HTMLButtonElement | null };
 
@@ -13,15 +13,21 @@ function guestToken(): string {
   return t;
 }
 
+// all of one owner's wishlists share the owner.github.io origin, so a guest's own
+// bookings are remembered per list; the token stays shared, it only proves "this browser"
+const MINE_KEY = `wl-mine:${LIST_ID}`;
+
 function loadMine(): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem("wl-mine") || "[]"));
+    // bookings made before lists existed were stored under the bare key
+    const raw = localStorage.getItem(MINE_KEY) ?? localStorage.getItem("wl-mine");
+    return new Set(JSON.parse(raw || "[]"));
   } catch {
     return new Set();
   }
 }
 function saveMine(mine: Set<string>) {
-  localStorage.setItem("wl-mine", JSON.stringify([...mine]));
+  localStorage.setItem(MINE_KEY, JSON.stringify([...mine]));
 }
 
 export async function initReservations() {
@@ -85,6 +91,7 @@ export async function initReservations() {
     const { data, error } = await supabase
       .from("reservations")
       .select("reserved")
+      .eq("list", LIST_ID)
       .eq("slug", slug)
       .maybeSingle();
     if (!error) setAll(slug, Boolean(data?.reserved));
@@ -93,6 +100,7 @@ export async function initReservations() {
   const { data, error } = await supabase
     .from("reservations")
     .select("slug, reserved")
+    .eq("list", LIST_ID)
     .eq("reserved", true);
   if (error) {
     console.warn("[reservations] не удалось загрузить статусы:", error.message);
@@ -104,7 +112,12 @@ export async function initReservations() {
     .channel("reservations-live")
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "reservations" },
+      {
+        event: "*",
+        schema: "public",
+        table: "reservations",
+        filter: `list=eq.${LIST_ID}`,
+      },
       (payload) => {
         const row = (payload.new ?? payload.old) as {
           slug: string;
@@ -134,6 +147,7 @@ export async function initReservations() {
           btn.disabled = true;
           btn.textContent = "Снимаем…";
           const { data, error } = await supabase.rpc("unreserve_item", {
+            list_id: LIST_ID,
             item_slug: slug,
             tok: guestToken(),
           });
@@ -160,6 +174,7 @@ export async function initReservations() {
         btn.disabled = true;
         btn.textContent = "Бронируем…";
         const { data, error } = await supabase.rpc("reserve_item", {
+          list_id: LIST_ID,
           item_slug: slug,
           tok: guestToken(),
         });
